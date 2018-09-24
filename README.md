@@ -12,7 +12,7 @@ Reasons of Item CF instead of User CF:
 ● Using user’s historical data, more convincing <br>
 ● One cannot say two people are similar in movie taste just based on the movies they watch - people tend to be more "changable" and "unstable" <br>
 
-### How to define the similarity between two movies?
+#### How to define the similarity between two movies?
 One can perform a covarience matrix on movies while the value will be the rating and row will be user. <br><br>
 Or simply perform a correlation on one movie vector with the whole matrix to find the correlations between this movie and other movies. <br>
 #### BUT!
@@ -36,14 +36,14 @@ It is a vector of movies containing the rating for each of them. And these are a
 #### Co-occurance matrix * Rating matrix
 ![Matrix Multiplication](./img/matrixmul.png "Matrix Multiplication for recommendation")
 
-### Flow
+### Proces Flow
 #### Data preprocessing
 ![Raw Data Input](./img/rawinput.png "Raw Data Input")<br>
 Raw data into data format of each row: <br>
 userId,movieId,rating <br>
 ("," as separator) <br>
 #### 5 MapReduce Jobs
-###### 1st MapReduce Job
+##### 1st MapReduce Job
 Parse input data: <br>
 Mapper output key=userId, value=(movieId, rating) <br>
 <br>
@@ -54,7 +54,7 @@ key=userId, value=[(movieId1, rating1), (movieId2, rating2),...] <br>
 <br>
 ![MapReduce1](./img/mapper1reducer1.png "MapReduce1")<br>
 
-###### 2nd MapReduce Job
+##### 2nd MapReduce Job
 ![MapReduce2](./img/mapreduce2.png "MapReduce2")
 <br>
 <br>
@@ -67,9 +67,9 @@ Mapper output: key=(movie1,movie2), value=1 (means occurance=1) AND key=(movie2,
 Reducer: count the total occurance of each movie pair (key=(movie1,movie2)), output key=(movie1,movie2), value=sum(values), values are the list from mapper containing "1"s. <br>
 ###### Noted:
 Another way to calculate similarity is we can use cosine similarity for each pair of movies. (Can be further evaluated to see which one has the most robust recommendation)<br>
-###### 3rd MapReduce Job
+##### 3rd MapReduce Job
 ![Normalization](./img/normalization.png "Normalization") <br>
-###### Normalization
+##### Normalization
 Normalize for each row (to have a summation to 1) so that it has weights for each movies in the column for later multiplying a movie vector to get the predicted ratings. <br><br>
 ![MapReduce3](./img/mapper3.png "MapReduce3") <br><br>
 Mapper: pass through. Input key=(movie1,movie2), value=total_occurance; output key=movie1, value=(movie2, total_occurance) <br>
@@ -84,12 +84,12 @@ For the next MapReduce job, we need two mappers, one for the relations between m
 In Java, we can specify two mapper in one MapReduce class. <br><br>
 In python, I tried several times and I found that the mapper handling reading in user ratings data has to be a reducer_init in the 3rd MapReduce job so that it can pass the data along with the reducer in the 3rd MapReduce job. The data format for movie rating vector is key=movieId, value=(userId, float(rating), "rating"). <br><br>
 And the tag "rating" is indicating this value is for movie rating vector which is for the 4th MapReduce job which performs matrix multiplication <br>
-###### Improvement
+##### Improvement
 When reading in user rating data again, initially, we just pass through those movies with ratings and ignore those without ratings meaning those movies user didn't rate we give them a "0" rate. <br><br>
 But this may cause a bias. We human may treat "0" as didn't watch, a neutral value. However, the system may think user doesn't like such movies at all. <br><br>
 What neutral really means would be the average rating score over all movies that one user has rated. So in this process (while the current mapper reading in user rating data), we also assign a average rating score to those movies originally without rate and pass them through as well.
 (pic of user rating vector)
-###### 4th MapReduce Job
+##### 4th MapReduce Job
 Input: key=movie2 (column), value=movie_relation_or_rating_list (each item in this list should have a tag, either "relation" or "rating")<br>
 ![Matrix Multiplication](./img/matrixmul_1.png "Matrix Multiplication") <br>
 <br>
@@ -102,7 +102,7 @@ When talking about matrix multiplying a vector, the normal order of doing so wou
 However, in MapReduce, even through we can set the movie in each row in the co-occurance matrix as key (key=M1, value=[M1,M2,...]), we cannot get all the movies in user rating vector in one reducer since they don't share the same key. <br><br>
 (For example, for userA, we are using row movie M1 as key, key=M1, and we have to multiply [M1, M2,...] with the userA's M1,M2,... ratings but in fact we can only get userA's M1 in the same reducer.)
 So we have to construct the multiplication as the way specified in 3rd and 4th MapReduce jobs.
-###### 5th MapReduce Job
+##### 5th MapReduce Job
 Input: key=(user, movie1), value=float(relation * rating) <br><br>
 Mapper just passes through all data and not doing anything. <br><br>
 Reducer sums up all the values under the key (user, movie1), in another word, sums up the result score for each movie for the specific user.<br>
